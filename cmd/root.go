@@ -11,7 +11,7 @@ import (
 
 	"github.com/prometheus/prometheus/discovery/moby"
 	"github.com/spf13/cobra"
-	"github.com/xruins/promplexer/pkg"
+	"github.com/xruins/prommux/pkg"
 )
 
 var (

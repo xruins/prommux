@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/xruins/promplexer/cmd"
+	"github.com/xruins/prommux/cmd"
 )
 
 func main() {
