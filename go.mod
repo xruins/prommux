@@ -1,4 +1,4 @@
-module github.com/xruins/promplexer
+module github.com/xruins/prommux
 
 go 1.24.1
 
