@@ -183,6 +183,7 @@ func (h *Handler) Run(ctx context.Context) error {
 							"registered endpoint",
 							slog.String("url", u.String()),
 							slog.String("hash", hash),
+							slog.Any("target", target),
 						)
 					}
 				}

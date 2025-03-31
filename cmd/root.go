@@ -3,19 +3,17 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/prometheus/prometheus/discovery/moby"
 	"github.com/spf13/cobra"
 	"github.com/xruins/prommux/pkg"
-)
-
-var (
-	logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 )
 
 // filterStringToMobyFilter converts string into the struct used by Docker API.
@@ -40,11 +38,34 @@ func filterStringToMobyFilter(s string) ([]moby.Filter, error) {
 	return ret, nil
 }
 
+func setLogLevel(level string) (slog.Level, error) {
+	s := strings.ToLower(level)
+	switch s {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, errors.New("invalid log level. (candidates: error, warn, info, debug)")
+	}
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "prommux",
 	Short: "A server for HTTP service-discovery and reverse-proxy for Prometheus exporters",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		level, err := setLogLevel(logLevel)
+		if err != nil {
+			return fmt.Errorf("failed to set log level: %w", err)
+		}
+
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+
 		mobyFilter, err := filterStringToMobyFilter(filter)
 		if err != nil {
 			return fmt.Errorf("failed to convert the value of `filter`: %w", err)
@@ -103,19 +124,20 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		logger.Error("an error occured", "error", err)
+		slog.Default().Error("an error occured", "error", err)
 		os.Exit(1)
 	}
 }
 
 var (
-	port, dockerPort                                       int
-	bindAddress, dockerAddress, regexpDockerLabels, filter string
-	includeDockerLabels                                    bool
-	dockerRefreshInterval, discoverTimeout, proxyTimeout   time.Duration
+	port, dockerPort                                                 int
+	bindAddress, dockerAddress, regexpDockerLabels, filter, logLevel string
+	includeDockerLabels                                              bool
+	dockerRefreshInterval, discoverTimeout, proxyTimeout             time.Duration
 )
 
 func init() {
+	rootCmd.Flags().StringVarP(&logLevel, "log-level", "l", "info", "the severity for logging (error, info, warn, debug)")
 	rootCmd.Flags().StringVarP(&dockerAddress, "docker-address", "d", "unix:///var/run/docker.sock", "the address for Docker API")
 	rootCmd.Flags().IntVarP(&dockerPort, "docker-port", "", 8080, "the port for Docker API")
 	rootCmd.Flags().StringVarP(&bindAddress, "bind-address", "b", "0.0.0.0", "the address listening on")
