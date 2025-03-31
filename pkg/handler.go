@@ -179,7 +179,7 @@ func (h *Handler) Run(ctx context.Context) error {
 						u := geneateURLFromLabels(target)
 						hash := endpointHash(u.String())
 						h.proxies[hash] = u
-						h.logger.InfoContext(
+						h.logger.DebugContext(
 							ctx,
 							"registered endpoint",
 							slog.String("url", u.String()),
@@ -236,7 +236,6 @@ func (h *Handler) endpointStatus(w http.ResponseWriter, r *http.Request) {
 	status := &responseStatus{
 		Config: *h.config,
 	}
-	slog.Info("endpointStatus", "proxies", h.proxies)
 	for hash, url := range h.proxies {
 		status.Targets = append(status.Targets, &responseStatusTarget{
 			URL:  url.String(),
