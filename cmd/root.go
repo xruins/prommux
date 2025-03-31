@@ -72,8 +72,9 @@ var rootCmd = &cobra.Command{
 		}
 
 		params := &pkg.HandlerParams{
-			Logger:       *logger,
-			ProxyTimeout: proxyTimeout,
+			Logger:           *logger,
+			ProxyTimeout:     proxyTimeout,
+			AdditionalLabels: additionalLabels,
 			DiscovererParams: &pkg.DiscovererParams{
 				Host:                dockerAddress,
 				Port:                dockerPort,
@@ -130,10 +131,10 @@ func Execute() {
 }
 
 var (
-	port, dockerPort                                                 int
-	bindAddress, dockerAddress, regexpDockerLabels, filter, logLevel string
-	includeDockerLabels                                              bool
-	dockerRefreshInterval, discoverTimeout, proxyTimeout             time.Duration
+	port, dockerPort                                                                   int
+	bindAddress, dockerAddress, regexpDockerLabels, filter, logLevel, additionalLabels string
+	includeDockerLabels                                                                bool
+	dockerRefreshInterval, discoverTimeout, proxyTimeout                               time.Duration
 )
 
 func init() {
@@ -148,4 +149,5 @@ func init() {
 	rootCmd.Flags().BoolVarP(&includeDockerLabels, "include-labels", "i", false, "whether the labels retrieved by docker API on discover endpoint response")
 	rootCmd.Flags().StringVarP(&regexpDockerLabels, "regexp-labels", "r", "", "regexp to filter Docker labels. must be used with --include-labels(-i) switch.")
 	rootCmd.Flags().StringVarP(&filter, "filter", "f", "", "filter output based on conditions provided. see https://docs.docker.com/reference/api/engine/version/v1.40/#tag/Container for the format.")
+	rootCmd.Flags().StringVarP(&additionalLabels, "additional-labels", "a", "", "labels to append on `labels` field of discover API response. must be key-value pair in JSON.")
 }

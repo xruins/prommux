@@ -29,6 +29,7 @@ type Handler struct {
 	ch                              <-chan []*targetgroup.Group
 	discovererTimeout, proxyTimeout time.Duration
 	includeDockerLabels             bool
+	additionalLabels                model.LabelSet
 	regexpDockerLabels              *regexp.Regexp
 	regexpMatchCache                map[string]bool
 	logger                          slog.Logger
@@ -46,6 +47,7 @@ type HandlerParams struct {
 	Logger           slog.Logger       `json:"-"`
 	ProxyTimeout     time.Duration     `json:"proxy_timeout"`
 	DiscovererParams *DiscovererParams `json:"discoverer_params"`
+	AdditionalLabels string            `json:"additional_labels,string"`
 }
 
 type DiscovererParams struct {
@@ -82,13 +84,24 @@ func NewHandler(params *HandlerParams) (*Handler, error) {
 		config:              params,
 	}
 
+	var err error
+	if al := params.AdditionalLabels; al != "" {
+		var labelSet model.LabelSet
+		err = labelSet.UnmarshalJSON([]byte(al))
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile additionalLabels: %w", err)
+		}
+		h.additionalLabels = labelSet
+	}
+
 	if regexpDockerLabels := params.DiscovererParams.RegexpDockerLabels; regexpDockerLabels != "" {
-		var err error
 		h.regexpDockerLabels, err = regexp.Compile(regexpDockerLabels)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile regexpDockerLabels: %w", err)
 		}
 	}
+
+	h.logger.Debug("initialized Handler", slog.Any("params", params))
 	return h, nil
 }
 
@@ -279,6 +292,10 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 			if h.includeDockerLabels {
 				config.Labels = config.Labels.Merge(h.filterLabels(newLabels))
 			}
+			if h.additionalLabels != nil {
+				config.Labels = config.Labels.Merge(h.additionalLabels)
+			}
+
 			ret = append(ret, config)
 		}
 	}
