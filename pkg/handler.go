@@ -34,6 +34,7 @@ type Handler struct {
 	regexpMatchCache                map[string]bool
 	logger                          slog.Logger
 	reverseProxyMap                 map[url.URL]*httputil.ReverseProxy
+	config                          *HandlerParams
 }
 
 var (
@@ -43,19 +44,19 @@ var (
 )
 
 type HandlerParams struct {
-	Logger           slog.Logger
-	ProxyTimeout     time.Duration
-	DiscovererParams *DiscovererParams
+	Logger           slog.Logger       `json:"-"`
+	ProxyTimeout     time.Duration     `json:"proxy_timeout"`
+	DiscovererParams *DiscovererParams `json:"discoverer_params"`
 }
 
 type DiscovererParams struct {
-	Host                string
-	Port                int
-	DiscovererTimeout   time.Duration
-	RefreshInterval     time.Duration
-	IncludeDockerLabels bool
-	RegexpDockerLabels  string
-	Filter              []moby.Filter
+	Host                string        `json:"host"`
+	Port                int           `json:"port"`
+	DiscovererTimeout   time.Duration `json:"discoverer_timeout"`
+	RefreshInterval     time.Duration `json:"refresh_interval"`
+	IncludeDockerLabels bool          `json:"include_docker_labels"`
+	RegexpDockerLabels  string        `json:"regexp_docker_labels"`
+	Filter              []moby.Filter `json:"filter"`
 }
 
 func NewHandler(params *HandlerParams) (*Handler, error) {
@@ -79,6 +80,7 @@ func NewHandler(params *HandlerParams) (*Handler, error) {
 		regexpMatchCache:    make(map[string]bool),
 		logger:              params.Logger,
 		reverseProxyMap:     make(map[url.URL]*httputil.ReverseProxy),
+		config:              params,
 	}
 
 	if regexpDockerLabels := params.DiscovererParams.RegexpDockerLabels; regexpDockerLabels != "" {
@@ -177,11 +179,11 @@ func (h *Handler) Run(ctx context.Context) error {
 						u := geneateURLFromLabels(target)
 						hash := endpointHash(u.String())
 						h.proxies[hash] = u
-						h.logger.DebugContext(
+						h.logger.InfoContext(
 							ctx,
 							"registered endpoint",
 							slog.String("url", u.String()),
-							slog.String("hasn", hash),
+							slog.String("hash", hash),
 						)
 					}
 				}
@@ -198,6 +200,7 @@ func (h *Handler) NewRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/discover", h.endpointServiceDiscovery)
 	r.HandleFunc("/proxy/{source}", h.endpointProxy)
+	r.HandleFunc("/status", h.endpointStatus)
 	r.Handle("/metrics", promhttp.Handler())
 	return r
 }
@@ -216,6 +219,35 @@ const (
 	// souceStaticConfig is the name for `Source` label.
 	souceStaticConfig = "prommux"
 )
+
+type responseStatusTarget struct {
+	URL  string `json:"url"`
+	Hash string `json:"hash"`
+}
+
+type responseStatus struct {
+	Targets []*responseStatusTarget `json:"targets"`
+	Config  HandlerParams           `json:"config"`
+}
+
+func (h *Handler) endpointStatus(w http.ResponseWriter, r *http.Request) {
+	h.targetsMutex.RLock()
+	defer h.targetsMutex.RUnlock()
+	status := &responseStatus{
+		Config: *h.config,
+	}
+	slog.Info("endpointStatus", "proxies", h.proxies)
+	for hash, url := range h.proxies {
+		status.Targets = append(status.Targets, &responseStatusTarget{
+			URL:  url.String(),
+			Hash: hash,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(status)
+}
 
 // endpointServiceDiscovery serves the endpoint for Docker HTTP service discovery.
 func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +292,14 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 	return
 }
 
+func createProxy(target url.URL) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Director: func(r *http.Request) {
+			r.URL = &target
+		},
+	}
+}
+
 // endpointServiceDiscovery serves reverseproxy for the exporters detected by Docker API.
 func (h *Handler) endpointProxy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -276,9 +316,10 @@ func (h *Handler) endpointProxy(w http.ResponseWriter, r *http.Request) {
 	if h.reverseProxyMap == nil {
 		h.reverseProxyMap = make(map[url.URL]*httputil.ReverseProxy, 1)
 	}
+	slog.InfoContext(r.Context(), "endpointProxy", "url", u.String())
 	rp, ok := h.reverseProxyMap[*u]
 	if !ok {
-		rp = httputil.NewSingleHostReverseProxy(u)
+		rp = createProxy(*u)
 		h.reverseProxyMap[*u] = rp
 	}
 
