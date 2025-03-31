@@ -208,7 +208,6 @@ func (h *Handler) NewRouter() *mux.Router {
 type staticConfig struct {
 	Targets []string       `json:"targets"`
 	Labels  model.LabelSet `json:"labels,omitempty"`
-	Source  string         `json:"source"`
 }
 
 const (
@@ -216,8 +215,6 @@ const (
 	defaultMetricPath = "/metrics"
 	// defaultScheme is the default scheme for scraping by Prometheus.
 	defaultScheme = "http"
-	// souceStaticConfig is the name for `Source` label.
-	souceStaticConfig = "prommux"
 )
 
 type responseStatusTarget struct {
@@ -270,7 +267,6 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 			}
 			config := &staticConfig{
 				Targets: []string{strings.Join([]string{r.Host, "proxy", targetUrl}, "/")},
-				Source:  souceStaticConfig,
 			}
 			if h.includeDockerLabels {
 				config.Labels = h.filterLabels(newLabels)
