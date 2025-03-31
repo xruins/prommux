@@ -11,7 +11,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -254,22 +253,30 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 		for _, ls := range tg.Targets {
 			newLabels := ls.Clone()
 
-			targetUrl := endpointHash(geneateURLFromLabels(newLabels).String())
+			hash := endpointHash(geneateURLFromLabels(newLabels).String())
 
 			// dedup targets by TargetURL
-			if _, ok := dedupMap[targetUrl]; ok {
+			if _, ok := dedupMap[hash]; ok {
 				continue
 			}
-			dedupMap[targetUrl] = struct{}{}
+			dedupMap[hash] = struct{}{}
 
 			for _, key := range []string{model.AddressLabel, model.SchemeLabel, model.MetricsPathLabel} {
 				delete(newLabels, model.LabelName(key))
 			}
+			scheme := defaultScheme
+			if r.URL.Scheme != "" {
+				scheme = r.URL.Scheme
+			}
 			config := &staticConfig{
-				Targets: []string{strings.Join([]string{r.Host, "proxy", targetUrl}, "/")},
+				Targets: []string{r.Host},
+				Labels: model.LabelSet{
+					labelNameMetricsPathLabel: model.LabelValue("/proxy/" + hash),
+					labelNameSchemeLabel:      model.LabelValue(scheme),
+				},
 			}
 			if h.includeDockerLabels {
-				config.Labels = h.filterLabels(newLabels)
+				config.Labels = config.Labels.Merge(h.filterLabels(newLabels))
 			}
 			ret = append(ret, config)
 		}
