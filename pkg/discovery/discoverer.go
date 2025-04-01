@@ -1,4 +1,4 @@
-package pkg
+package discovery
 
 import (
 	"fmt"
@@ -14,8 +14,8 @@ import (
 	"context"
 )
 
-// discoverer is to get information of Docker containers from Docker API.
-type discoverer struct {
+// Discoverer is to get information of Docker containers from Docker API.
+type Discoverer struct {
 	logger   *slog.Logger
 	host     string
 	port     int
@@ -24,16 +24,16 @@ type discoverer struct {
 	ch       chan<- []*targetgroup.Group
 }
 
-// newDiscover instantinates discoverer and returns it.
-func newDiscoverer(
+// NewDiscover instantinates discoverer and returns it.
+func NewDiscoverer(
 	logger *slog.Logger,
 	host string,
 	port int,
 	filter []moby.Filter,
 	interval time.Duration,
 	ch chan<- []*targetgroup.Group,
-) *discoverer {
-	return &discoverer{
+) *Discoverer {
+	return &Discoverer{
 		logger:   logger,
 		host:     host,
 		port:     port,
@@ -43,8 +43,8 @@ func newDiscoverer(
 	}
 }
 
-// run runs initialize docker discoverer and let it run.
-func (d *discoverer) run(ctx context.Context) error {
+// Run runs initialize docker discoverer and let it run.
+func (d *Discoverer) Run(ctx context.Context) error {
 	reg := prometheus.NewRegistry()
 	refreshMetrics := discovery.NewRefreshMetrics(reg)
 	cfg := moby.DefaultDockerSDConfig

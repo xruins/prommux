@@ -13,7 +13,8 @@ import (
 
 	"github.com/prometheus/prometheus/discovery/moby"
 	"github.com/spf13/cobra"
-	"github.com/xruins/prommux/pkg"
+	"github.com/xruins/prommux/pkg/handler"
+	alogger "github.com/xruins/prommux/pkg/logger"
 )
 
 // filterStringToMobyFilter converts string into the struct used by Docker API.
@@ -71,11 +72,11 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("failed to convert the value of `filter`: %w", err)
 		}
 
-		params := &pkg.HandlerParams{
+		params := &handler.HandlerParams{
 			Logger:           *logger,
 			ProxyTimeout:     proxyTimeout,
 			AdditionalLabels: additionalLabels,
-			DiscovererParams: &pkg.DiscovererParams{
+			DiscovererParams: &handler.DiscovererParams{
 				Host:                dockerAddress,
 				Port:                dockerPort,
 				DiscovererTimeout:   discoverTimeout,
@@ -85,7 +86,7 @@ var rootCmd = &cobra.Command{
 				Filter:              mobyFilter,
 			},
 		}
-		r, err := pkg.NewHandler(params)
+		r, err := handler.NewHandler(params)
 		if err != nil {
 			return fmt.Errorf("failed to initialize handler: %w", err)
 		}
@@ -101,7 +102,7 @@ var rootCmd = &cobra.Command{
 		mux := http.NewServeMux()
 		mux.Handle("/", r.NewRouter())
 
-		handler := pkg.AccessLogger(mux, *logger)
+		handler := alogger.AccessLogger(mux, *logger)
 		server := &http.Server{Addr: fmt.Sprintf("%s:%d", bindAddress, port), Handler: handler}
 		go func() {
 			err := server.ListenAndServe()

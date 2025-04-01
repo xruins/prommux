@@ -1,4 +1,4 @@
-package pkg
+package handler
 
 import "github.com/prometheus/client_golang/prometheus"
 
