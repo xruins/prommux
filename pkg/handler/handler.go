@@ -18,8 +18,12 @@ import (
 	"github.com/xruins/prommux/pkg/discovery"
 )
 
+type discoverer interface {
+	Run(ctx context.Context) error
+}
+
 type Handler struct {
-	discoverer                      *discovery.Discoverer
+	discoverer                      discoverer
 	targets                         []*targetgroup.Group
 	targetsMutex                    sync.RWMutex
 	proxies                         map[string]*url.URL
@@ -53,21 +57,8 @@ type DiscovererParams struct {
 	Filter              []moby.Filter `json:"filter"`
 }
 
-// NewHandler creates a new instance on Handler and returns it.
-func NewHandler(params *HandlerParams) (*Handler, error) {
-	ch := make(chan []*targetgroup.Group)
-	discoverer := discovery.NewDiscoverer(
-		&params.Logger,
-		params.DiscovererParams.Host,
-		params.DiscovererParams.Port,
-		params.DiscovererParams.Filter,
-		params.DiscovererParams.RefreshInterval,
-		ch,
-	)
-
+func createHandlerByParams(params *HandlerParams) (*Handler, error) {
 	h := &Handler{
-		discoverer:          discoverer,
-		ch:                  ch,
 		proxies:             make(map[string]*url.URL),
 		discovererTimeout:   params.DiscovererParams.DiscovererTimeout,
 		proxyTimeout:        params.ProxyTimeout,
@@ -94,6 +85,26 @@ func NewHandler(params *HandlerParams) (*Handler, error) {
 			return nil, fmt.Errorf("failed to compile regexpDockerLabels: %w", err)
 		}
 	}
+
+	return h, nil
+}
+
+// NewHandler creates a new instance on Handler and returns it.
+func NewHandler(params *HandlerParams) (*Handler, error) {
+	h, err := createHandlerByParams(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process handlerParams: %w", err)
+	}
+	ch := make(chan []*targetgroup.Group, 1)
+	h.ch = ch
+	h.discoverer = discovery.NewDiscoverer(
+		&params.Logger,
+		params.DiscovererParams.Host,
+		params.DiscovererParams.Port,
+		params.DiscovererParams.Filter,
+		params.DiscovererParams.RefreshInterval,
+		ch,
+	)
 
 	h.logger.Debug("initialized Handler", slog.Any("params", params))
 	return h, nil
