@@ -120,6 +120,11 @@ func (h *Handler) Run(ctx context.Context) error {
 	for {
 		select {
 		case v := <-h.ch:
+			h.logger.DebugContext(
+				ctx,
+				"received target groups",
+				slog.Any("target_group", v),
+			)
 			func() {
 				h.targetsMutex.Lock()
 				defer h.targetsMutex.Unlock()
