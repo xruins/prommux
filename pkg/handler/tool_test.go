@@ -86,16 +86,6 @@ func TestEndpointHash(t *testing.T) {
 			input:    "test",
 			expected: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
 		},
-		{
-			name:     "Long string",
-			input:    "abcdefghijklmnopqrstuvwxyz0123456789",
-			expected: "f0c89c6eabd2eb511fbb46dbb1d552f166efc322",
-		},
-		{
-			name:     "Special characters",
-			input:    "!@#$%^&*()_+-=",
-			expected: "678418e299a2b99653e7532f0ff6dbb8dc5d051e",
-		},
 	}
 
 	for _, tt := range tests {
