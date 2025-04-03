@@ -58,19 +58,17 @@ func (m *mockDiscoverer) Run(ctx context.Context) error {
 	return nil
 }
 
-func createTestHandler(t *testing.T, mockTargetGroups []*targetgroup.Group, params *HandlerParams) (*Handler, chan struct{}, error) {
+func createTestHandler(t *testing.T, mockTargetGroups []*targetgroup.Group, params *HandlerParams) (*Handler, error) {
 	tgCh := make(chan []*targetgroup.Group, 1)
-	readyCh := make(chan struct{}, 1)
 
 	h, err := createHandlerByParams(params)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create Handler by params: %w", err)
+		return nil, fmt.Errorf("failed to create Handler by params: %w", err)
 	}
 
 	h.discoverer = &mockDiscoverer{
-		ch:      tgCh,
-		tg:      mockTargetGroups,
-		readyCh: readyCh,
+		ch: tgCh,
+		tg: mockTargetGroups,
 	}
 
 	logger := slog.New(slog.DiscardHandler)
@@ -79,5 +77,5 @@ func createTestHandler(t *testing.T, mockTargetGroups []*targetgroup.Group, para
 	h.logger = *logger
 	h.ch = tgCh
 
-	return h, readyCh, nil
+	return h, nil
 }
