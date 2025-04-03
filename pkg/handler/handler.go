@@ -36,6 +36,7 @@ type Handler struct {
 	logger                          slog.Logger
 	reverseProxyMap                 map[url.URL]*httputil.ReverseProxy
 	config                          *HandlerParams
+	isReady                         notifiableAtomicBool
 }
 
 // HandlerParam is the parameters to configure Handler.
@@ -144,9 +145,11 @@ func (h *Handler) Run(ctx context.Context) error {
 					}
 				}
 			}()
+			h.isReady.Store(true)
 		case <-ctx.Done():
 			return nil
 		case err := <-errCh:
+			h.isReady.Store(false)
 			return fmt.Errorf("an error occured when executing docker discoverer: %w", err)
 		}
 	}
