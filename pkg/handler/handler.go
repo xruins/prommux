@@ -161,6 +161,7 @@ func (h *Handler) NewRouter() *mux.Router {
 	r.HandleFunc("/discover", h.endpointServiceDiscovery)
 	r.HandleFunc("/proxy/{source}", h.endpointProxy)
 	r.HandleFunc("/status", h.endpointStatus)
+	r.HandleFunc("/-/health", h.endpointHealth)
 	r.Handle("/metrics", promhttp.Handler())
 	return r
 }
