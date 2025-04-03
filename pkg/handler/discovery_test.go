@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/prometheus/common/model"
@@ -113,32 +112,40 @@ func TestEndpointServiceDiscovery(t *testing.T) {
 	}
 
 	for _, p := range patterns {
-		handler, readyCh, err := createTestHandler(t, p.tg, p.params)
-		if err != nil {
-			t.Fatal(err)
-		}
-		go func() {
-			handler.Run(ctx)
-		}()
-		<-readyCh
-		time.Sleep(time.Millisecond * 50) // [TODO] do something better
+		t.Run(p.description, func(t *testing.T) {
+			handler, err := createTestHandler(t, p.tg, p.params)
+			if err != nil {
+				t.Fatal(err)
+			}
+			readyCh := make(chan bool, 1)
+			handler.isReady.subscribe(readyCh)
+			go func() {
+				handler.Run(ctx)
+			}()
+			for {
+				v := <-readyCh
+				if v {
+					break
+				}
+			}
 
-		r := httptest.NewRequest(http.MethodGet, "/discovery", nil)
-		w := httptest.NewRecorder()
-		handler.endpointServiceDiscovery(w, r)
-		res := w.Result()
-		defer res.Body.Close()
-		data, err := io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var got []*staticConfig
-		err = json.Unmarshal(data, &got)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if diff := cmp.Diff(got, p.wantResponse); diff != "" {
-			t.Errorf("unexpected response. diff(-got, +want): %s", diff)
-		}
+			r := httptest.NewRequest(http.MethodGet, "/discovery", nil)
+			w := httptest.NewRecorder()
+			handler.endpointServiceDiscovery(w, r)
+			res := w.Result()
+			defer res.Body.Close()
+			data, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []*staticConfig
+			err = json.Unmarshal(data, &got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(got, p.wantResponse); diff != "" {
+				t.Errorf("unexpected response. diff(-got, +want): %s", diff)
+			}
+		})
 	}
 }
