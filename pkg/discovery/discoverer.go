@@ -16,12 +16,13 @@ import (
 
 // Discoverer is to get information of Docker containers from Docker API.
 type Discoverer struct {
-	logger   *slog.Logger
-	host     string
-	port     int
-	filter   []moby.Filter
-	interval time.Duration
-	ch       chan<- []*targetgroup.Group
+	logger             *slog.Logger
+	host               string
+	port               int
+	filter             []moby.Filter
+	interval           time.Duration
+	hostNetworkingHost string
+	ch                 chan<- []*targetgroup.Group
 }
 
 // NewDiscover instantinates discoverer and returns it.
@@ -31,15 +32,17 @@ func NewDiscoverer(
 	port int,
 	filter []moby.Filter,
 	interval time.Duration,
+	hostNetworkingHost string,
 	ch chan<- []*targetgroup.Group,
 ) *Discoverer {
 	return &Discoverer{
-		logger:   logger,
-		host:     host,
-		port:     port,
-		filter:   filter,
-		interval: interval,
-		ch:       ch,
+		logger:             logger,
+		host:               host,
+		port:               port,
+		filter:             filter,
+		interval:           interval,
+		hostNetworkingHost: hostNetworkingHost,
+		ch:                 ch,
 	}
 }
 
@@ -52,6 +55,9 @@ func (d *Discoverer) Run(ctx context.Context) error {
 	cfg.Port = d.port
 	cfg.RefreshInterval = model.Duration(d.interval)
 	cfg.Filters = d.filter
+	if d.hostNetworkingHost != "" {
+		cfg.HostNetworkingHost = d.hostNetworkingHost
+	}
 	metrics := cfg.NewDiscovererMetrics(reg, refreshMetrics)
 	err := metrics.Register()
 	if err != nil {

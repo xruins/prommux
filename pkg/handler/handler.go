@@ -55,6 +55,7 @@ type DiscovererParams struct {
 	RefreshInterval     time.Duration `json:"refresh_interval"`
 	IncludeDockerLabels bool          `json:"include_docker_labels"`
 	RegexpDockerLabels  string        `json:"regexp_docker_labels"`
+	HostNetworkingHost  string        `json:"host_networking_host"`
 	Filter              []moby.Filter `json:"filter"`
 }
 
@@ -104,6 +105,7 @@ func NewHandler(params *HandlerParams) (*Handler, error) {
 		params.DiscovererParams.Port,
 		params.DiscovererParams.Filter,
 		params.DiscovererParams.RefreshInterval,
+		params.DiscovererParams.HostNetworkingHost,
 		ch,
 	)
 
