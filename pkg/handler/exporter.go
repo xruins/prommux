@@ -26,6 +26,18 @@ var (
 			Help: "Whether the last reload of Docker discovery succeeded or not",
 		},
 	)
+	proxySuccessCountMetrics = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: metricsPrefix + "proxy_success_count",
+			Help: "Count of succeeded requests of proxy endpoint",
+		},
+	)
+	proxyFailureCountMetrics = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: metricsPrefix + "proxy_failure_count",
+			Help: "Count of failed requests of proxy endpoint",
+		},
+	)
 )
 
 func init() {
@@ -33,5 +45,7 @@ func init() {
 		proxiedEndpointsCountMetrics,
 		proxiedEndpointsHTTPStatusMetrics,
 		discoveryLastReloadSuccessfulMetrics,
+		proxySuccessCountMetrics,
+		proxyFailureCountMetrics,
 	)
 }
