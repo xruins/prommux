@@ -84,6 +84,7 @@ var serverCmd = &cobra.Command{
 				IncludeDockerLabels: includeDockerLabels,
 				RegexpDockerLabels:  regexpDockerLabels,
 				RefreshInterval:     dockerRefreshInterval,
+				HostNetworkingHost:  hostNetworkingHost,
 				Filter:              mobyFilter,
 			},
 		}
@@ -133,10 +134,13 @@ func Execute() {
 }
 
 var (
-	port, dockerPort                                                                   int
-	bindAddress, dockerAddress, regexpDockerLabels, filter, logLevel, additionalLabels string
-	includeDockerLabels                                                                bool
-	dockerRefreshInterval, discoverTimeout, proxyTimeout                               time.Duration
+	port, dockerPort int
+	bindAddress, dockerAddress,
+	regexpDockerLabels, filter,
+	logLevel, additionalLabels,
+	hostNetworkingHost string
+	includeDockerLabels                                  bool
+	dockerRefreshInterval, discoverTimeout, proxyTimeout time.Duration
 )
 
 func init() {
@@ -152,5 +156,6 @@ func init() {
 	serverCmd.Flags().StringVarP(&regexpDockerLabels, "regexp-labels", "r", "", "regexp to filter Docker labels. must be used with --include-labels(-i) switch.")
 	serverCmd.Flags().StringVarP(&filter, "filter", "f", "", "filter output based on conditions provided. see https://docs.docker.com/reference/api/engine/version/v1.40/#tag/Container for the format.")
 	serverCmd.Flags().StringVarP(&additionalLabels, "additional-labels", "a", "", "labels to append on `labels` field of discover API response. must be key-value pair in JSON.")
+	serverCmd.Flags().StringVar(&hostNetworkingHost, "host-networking-host", "", "`HostNetworkingHost` value of Docker Service Discovery config")
 	rootCmd.AddCommand(serverCmd)
 }
