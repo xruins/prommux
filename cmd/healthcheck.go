@@ -42,7 +42,15 @@ var healthCheckCmd = &cobra.Command{
 			}
 		}
 		logger.DebugContext(ctx, "generated request URL", slog.String("url", u.String()))
-		resp, err := client.Get(u.String())
+		req := &http.Request{
+			Method: http.MethodGet,
+			URL:    u,
+			Header: http.Header{
+				"User-Agent": []string{"Prommux"},
+			},
+		}
+		req = req.WithContext(ctx)
+		resp, err := client.Do(req)
 		if err != nil {
 			logger.Error("failed to request healthcheck API", "error", err)
 			os.Exit(1)
