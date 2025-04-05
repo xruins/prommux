@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -30,7 +31,17 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 
 			newLabels := ls.Clone()
 
-			hash := endpointHash(geneateURLFromLabels(newLabels).String())
+			url, err := geneateURLFromLabels(newLabels)
+			if err != nil {
+				h.logger.ErrorContext(r.Context(), "failed to generate URL", "error", err)
+				http.Error(
+					w,
+					fmt.Sprintf("failed to generate URL. err: %s", err),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+			hash := endpointHash(url.String())
 
 			// dedup targets by TargetURL
 			if _, ok := dedupMap[hash]; ok {

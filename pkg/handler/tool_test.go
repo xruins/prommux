@@ -15,9 +15,9 @@ func TestGeneateURLFromLabels(t *testing.T) {
 		{
 			name: "Default labels",
 			labels: model.LabelSet{
-				labelNameSchemeLabel:   "http",
-				model.AddressLabel:     "example.com:9090",
-				model.MetricsPathLabel: "/metrics",
+				labelNameSchemeLabel:      "http",
+				labelNameAddressLabel:     "example.com:9090",
+				labelNameMetricsPathLabel: "/metrics",
 			},
 			expected: "http://example.com:9090/metrics",
 		},
@@ -25,8 +25,8 @@ func TestGeneateURLFromLabels(t *testing.T) {
 			name: "Override scheme",
 			labels: model.LabelSet{
 				labelNameSchemeLabel:         "http",
-				model.AddressLabel:           "example.com:9090",
-				model.MetricsPathLabel:       "/metrics",
+				labelNameAddressLabel:        "example.com:9090",
+				labelNameMetricsPathLabel:    "/metrics",
 				labelNameOverrideSchemeLabel: "https",
 			},
 			expected: "https://example.com:9090/metrics",
@@ -35,8 +35,8 @@ func TestGeneateURLFromLabels(t *testing.T) {
 			name: "Override address",
 			labels: model.LabelSet{
 				labelNameSchemeLabel:          "http",
-				model.AddressLabel:            "example.com:9090",
-				model.MetricsPathLabel:        "/metrics",
+				labelNameAddressLabel:         "example.com:9090",
+				labelNameMetricsPathLabel:     "/metrics",
 				labelNameOverrideAddressLabel: "override.com:8080",
 			},
 			expected: "http://override.com:8080/metrics",
@@ -45,8 +45,8 @@ func TestGeneateURLFromLabels(t *testing.T) {
 			name: "Override metrics path",
 			labels: model.LabelSet{
 				labelNameSchemeLabel:              "http",
-				model.AddressLabel:                "example.com:9090",
-				model.MetricsPathLabel:            "/metrics",
+				labelNameAddressLabel:             "example.com:9090",
+				labelNameMetricsPathLabel:         "/metrics",
 				labelNameOverrideMetricsPathLabel: "/new-metrics",
 			},
 			expected: "http://example.com:9090/new-metrics",
@@ -54,15 +54,29 @@ func TestGeneateURLFromLabels(t *testing.T) {
 		{
 			name: "Missing labels with defaults",
 			labels: model.LabelSet{
-				model.AddressLabel: "example.com:9090",
+				labelNameAddressLabel: "example.com:9090",
 			},
 			expected: "http://example.com:9090" + defaultMetricPath,
+		},
+		{
+			name: "Override with templates",
+			labels: model.LabelSet{
+				labelNameSchemeLabel:              "http",
+				labelNameAddressLabel:             "example.com:9090",
+				labelNameMetricsPathLabel:         "/metrics",
+				labelNameOverrideAddressLabel:     "mod-{{ .OriginalHost }}-mod:1{{ .OriginalPort }}",
+				labelNameOverrideMetricsPathLabel: "{{ .OriginalMetricsPath }}/foo",
+			},
+			expected: "http://mod-example.com-mod:19090" + defaultMetricPath + "/foo",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := geneateURLFromLabels(tt.labels)
+			u, err := geneateURLFromLabels(tt.labels)
+			if err != nil {
+				t.Fatalf("an error occured unexpectedly. err: %s", err)
+			}
 			if u.String() != tt.expected {
 				t.Errorf("expected %s, got %s", tt.expected, u.String())
 			}

@@ -128,13 +128,16 @@ func (h *Handler) Run(ctx context.Context) error {
 				"received target groups",
 				slog.Any("target_group", v),
 			)
-			func() {
+			err := func() error {
 				h.targetsMutex.Lock()
 				defer h.targetsMutex.Unlock()
 				h.targets = v
 				for _, tg := range v {
 					for _, target := range tg.Targets {
-						u := geneateURLFromLabels(target)
+						u, err := geneateURLFromLabels(target)
+						if err != nil {
+							return fmt.Errorf("failed to generate URL for `%s`: %w", target, err)
+						}
 						hash := endpointHash(u.String())
 						h.proxies[hash] = u
 						h.logger.DebugContext(
@@ -146,7 +149,11 @@ func (h *Handler) Run(ctx context.Context) error {
 						)
 					}
 				}
+				return nil
 			}()
+			if err != nil {
+				return err
+			}
 			h.isReady.Store(true)
 		case <-ctx.Done():
 			return nil
