@@ -51,11 +51,8 @@ func geneateURLFromLabels(ls model.LabelSet) (*url.URL, error) {
 
 	originalHost, originalPort, err := net.SplitHostPort(host)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to split `%s` label into host and port: %w",
-			model.AddressLabel,
-			err,
-		)
+		originalHost = host
+		originalPort = "80"
 	}
 
 	params := &OverrideLabelsTemplateParams{
