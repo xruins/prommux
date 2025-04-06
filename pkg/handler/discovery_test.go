@@ -39,8 +39,9 @@ func TestEndpointServiceDiscovery(t *testing.T) {
 						labelNameMetricsPathLabel: model.LabelValue(
 							"/proxy/" + endpointHash("http://example.com/metrics"),
 						),
-						"foo":  "bar",
-						"hoge": "fuga",
+						"foo":                            "bar",
+						"hoge":                           "fuga",
+						labelNameLabelPrommuxDetectedURL: "http://example.com/metrics",
 					},
 				},
 			},
@@ -61,6 +62,7 @@ func TestEndpointServiceDiscovery(t *testing.T) {
 						labelNameMetricsPathLabel: model.LabelValue(
 							"/proxy/" + endpointHash("http://example.com/metrics"),
 						),
+						labelNameLabelPrommuxDetectedURL: "http://example.com/metrics",
 					},
 				},
 			},
@@ -82,7 +84,8 @@ func TestEndpointServiceDiscovery(t *testing.T) {
 						labelNameMetricsPathLabel: model.LabelValue(
 							"/proxy/" + endpointHash("http://example.com/metrics"),
 						),
-						"foo": "bar",
+						"foo":                            "bar",
+						labelNameLabelPrommuxDetectedURL: "http://example.com/metrics",
 					},
 				},
 			},
@@ -104,7 +107,8 @@ func TestEndpointServiceDiscovery(t *testing.T) {
 						labelNameMetricsPathLabel: model.LabelValue(
 							"/proxy/" + endpointHash("http://example.com/metrics"),
 						),
-						"foofoo": "barbar",
+						"foofoo":                         "barbar",
+						labelNameLabelPrommuxDetectedURL: "http://example.com/metrics",
 					},
 				},
 			},

@@ -9,6 +9,7 @@ var (
 	labelNameOverrideSchemeLabel      = model.LabelName(overrideLabelPrefix + overrideLabelScheme)
 	labelNameOverrideAddressLabel     = model.LabelName(overrideLabelPrefix + overrideLabelAddress)
 	labelNameOverrideMetricsPathLabel = model.LabelName(overrideLabelPrefix + overrideLabelMetricPath)
+	labelNameLabelPrommuxDetectedURL  = model.LabelName(labelPrommuxDetectedURL)
 )
 
 const (
@@ -24,4 +25,6 @@ const (
 	overrideLabelScheme = "scheme"
 	// overrideLabelMetricPath is the name of label to override metric path to scrape.
 	overrideLabelMetricPath = "metrics_path"
+	// labelPrommuxScrapeURL is the name of label to indicate URL to scrape on reverse proxy.
+	labelPrommuxDetectedURL = "prommux_scrape_url"
 )

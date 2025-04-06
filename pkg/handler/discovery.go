@@ -69,6 +69,11 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 			if h.additionalLabels != nil {
 				config.Labels = config.Labels.Merge(h.additionalLabels)
 			}
+			config.Labels = config.Labels.Merge(
+				model.LabelSet{
+					labelNameLabelPrommuxDetectedURL: model.LabelValue(url.String()),
+				},
+			)
 
 			ret = append(ret, config)
 		}
