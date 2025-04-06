@@ -139,8 +139,11 @@ var (
 	regexpDockerLabels, filter,
 	logLevel, additionalLabels,
 	hostNetworkingHost string
-	includeDockerLabels                                  bool
-	dockerRefreshInterval, discoverTimeout, proxyTimeout time.Duration
+	includeDockerLabels bool
+	dockerRefreshInterval,
+	discoverTimeout,
+	proxyTimeout,
+	healthcheckTimeout time.Duration
 )
 
 func init() {
@@ -152,6 +155,7 @@ func init() {
 	serverCmd.Flags().DurationVarP(&dockerRefreshInterval, "docker-refresh-interval", "", 30*time.Second, "the interval to poll Docker API")
 	serverCmd.Flags().DurationVarP(&discoverTimeout, "discover-timeout", "o", 30*time.Second, "timeout of discovery endpoint")
 	serverCmd.Flags().DurationVarP(&proxyTimeout, "proxy-timeout", "t", 30*time.Second, "timeout of reverse-proxy endpoint")
+	serverCmd.Flags().DurationVarP(&healthcheckTimeout, "healthcheck-timeout", "k", false, "If non-zero value, perform healthcheck on the target before proxying. failed endpoints will be excepted from targets.")
 	serverCmd.Flags().BoolVarP(&includeDockerLabels, "include-labels", "i", false, "whether the labels retrieved by docker API on discover endpoint response")
 	serverCmd.Flags().StringVarP(&regexpDockerLabels, "regexp-labels", "r", "", "regexp to filter Docker labels. must be used with --include-labels(-i) switch.")
 	serverCmd.Flags().StringVarP(&filter, "filter", "f", "", "filter output based on conditions provided. see https://docs.docker.com/reference/api/engine/version/v1.40/#tag/Container for the format.")

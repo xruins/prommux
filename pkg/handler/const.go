@@ -27,4 +27,10 @@ const (
 	overrideLabelMetricPath = "metrics_path"
 	// labelPrommuxScrapeURL is the name of label to indicate URL to scrape on reverse proxy.
 	labelPrommuxDetectedURL = "prommux_scrape_url"
+	// userAgentName is the name of user agent to scrape metrics.
+	userAgentName = "Prommux"
+	// acceptHeader is the header to accept OpenMetrics format.
+	acceptHeader = "application/openmetrics-text; version=1.0.0; charset=utf-8"
+	// acceptEncodingHeader is the header to accept gzip or deflate encoding for OpenMetrics format.
+	acceptEncodingHeader = "gzip, deflate"
 )

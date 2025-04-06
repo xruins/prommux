@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"regexp"
@@ -22,29 +23,49 @@ type discoverer interface {
 	Run(ctx context.Context) error
 }
 
+type targets struct {
+	mu       sync.RWMutex
+	targets  []*targetgroup.Group
+	proxyMap map[string]*url.URL
+}
+
+func (t *targets) getAllTargets() []*targetgroup.Group {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.targets
+}
+
+func (t *targets) setTargets(targets []*targetgroup.Group) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.targets = targets
+}
+
 type Handler struct {
-	discoverer                      discoverer
-	targets                         []*targetgroup.Group
-	targetsMutex                    sync.RWMutex
-	proxies                         map[string]*url.URL
-	ch                              <-chan []*targetgroup.Group
-	discovererTimeout, proxyTimeout time.Duration
-	includeDockerLabels             bool
-	additionalLabels                model.LabelSet
-	regexpDockerLabels              *regexp.Regexp
-	regexpMatchCache                map[string]bool
-	logger                          slog.Logger
-	reverseProxyMap                 map[url.URL]*httputil.ReverseProxy
-	config                          *HandlerParams
-	isReady                         notifiableAtomicBool
+	discoverer   discoverer
+	targets      []*targetgroup.Group
+	targetsMutex sync.RWMutex
+	proxies      map[string]*url.URL
+	ch           <-chan []*targetgroup.Group
+	discovererTimeout, proxyTimeout,
+	healthcheckTimeout time.Duration
+	includeDockerLabels bool
+	additionalLabels    model.LabelSet
+	regexpDockerLabels  *regexp.Regexp
+	regexpMatchCache    map[string]bool
+	logger              slog.Logger
+	reverseProxyMap     map[url.URL]*httputil.ReverseProxy
+	config              *HandlerParams
+	isReady             notifiableAtomicBool
 }
 
 // HandlerParam is the parameters to configure Handler.
 type HandlerParams struct {
-	Logger           slog.Logger       `json:"-"`
-	ProxyTimeout     time.Duration     `json:"proxy_timeout"`
-	DiscovererParams *DiscovererParams `json:"discoverer_params"`
-	AdditionalLabels string            `json:"additional_labels,string"`
+	Logger             slog.Logger       `json:"-"`
+	ProxyTimeout       time.Duration     `json:"proxy_timeout"`
+	DiscovererParams   *DiscovererParams `json:"discoverer_params"`
+	HealthcheckTimeout time.Duration     `json:"healthcheck_timeout"`
+	AdditionalLabels   string            `json:"additional_labels,string"`
 }
 
 // DiscovererParams is the parameters to configure Discoverer.
@@ -65,6 +86,7 @@ func createHandlerByParams(params *HandlerParams) (*Handler, error) {
 		discovererTimeout:   params.DiscovererParams.DiscovererTimeout,
 		proxyTimeout:        params.ProxyTimeout,
 		includeDockerLabels: params.DiscovererParams.IncludeDockerLabels,
+		healthcheckTimeout:  params.HealthcheckTimeout,
 		regexpMatchCache:    make(map[string]bool),
 		logger:              params.Logger,
 		reverseProxyMap:     make(map[url.URL]*httputil.ReverseProxy),
@@ -113,6 +135,35 @@ func NewHandler(params *HandlerParams) (*Handler, error) {
 	return h, nil
 }
 
+// nopWriter is a no-operation http.ResponseWriter.
+// It is used to be embedded to statusRecorder to read only response status code.
+type nopWriter struct{}
+
+func (n *nopWriter) Header() http.Header {
+	return http.Header{}
+}
+func (n *nopWriter) Write([]byte) (int, error) {
+	return 0, nil
+}
+func (n *nopWriter) WriteHeader(_ int) {
+	// NOP
+}
+
+func (h *Handler) checkEndpointHealth(u *url.URL) (int, error) {
+	rp := createProxy(*u, h.healthcheckTimeout)
+	request, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+	request.Header.Set("User-Agent", userAgentName)
+	request.Header.Set("Accept", acceptHeader)
+	request.Header.Set("Accept-Encoding", acceptEncodingHeader)
+
+	w := &nopWriter{}
+	status := proxy(rp, w, request)
+	return status, nil
+}
+
 // Run receives TargetGroups from discoverer and update reverse proxy periodically.
 func (h *Handler) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
@@ -132,6 +183,8 @@ func (h *Handler) Run(ctx context.Context) error {
 				h.targetsMutex.Lock()
 				defer h.targetsMutex.Unlock()
 				h.targets = v
+				innerRoutineMutex := sync.Mutex{}
+				newProxies := make(map[string]*url.URL, len(v))
 				for _, tg := range v {
 					for _, target := range tg.Targets {
 						u, err := geneateURLFromLabels(target)
@@ -139,7 +192,28 @@ func (h *Handler) Run(ctx context.Context) error {
 							return fmt.Errorf("failed to generate URL for `%s`: %w", target, err)
 						}
 						hash := endpointHash(u.String())
-						h.proxies[hash] = u
+
+						// check health of the endpoint if healthcheckTimeout is not zero
+						if h.healthcheckTimeout > 0 {
+							statusCode, err := h.checkEndpointHealth(u)
+							if err == nil {
+								return fmt.Errorf("failed to check health of `%s`: %w", u.String(), err)
+							}
+							if statusCode != http.StatusOK {
+								h.logger.WarnContext(
+									ctx,
+									"endpoint healthcheck failed",
+									slog.String("url", u.String()),
+									slog.Int("status_code", statusCode),
+									slog.String("hash", hash),
+								)
+								continue
+							}
+						}
+
+						innerRoutineMutex.Lock()
+						newProxies[hash] = u
+						innerRoutineMutex.Unlock()
 						h.logger.DebugContext(
 							ctx,
 							"registered endpoint",

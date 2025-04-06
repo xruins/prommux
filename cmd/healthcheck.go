@@ -67,8 +67,7 @@ var healthCheckCmd = &cobra.Command{
 }
 
 var (
-	paramURL           string
-	healthcheckTimeout time.Duration
+	paramURL string
 )
 
 func init() {

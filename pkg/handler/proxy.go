@@ -1,17 +1,24 @@
 package handler
 
 import (
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/mux"
 )
 
-func createProxy(target url.URL) *httputil.ReverseProxy {
+func createProxy(target url.URL, timeout time.Duration) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			r.URL = &target
+		},
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: timeout,
+			}).DialContext,
 		},
 	}
 }
@@ -30,31 +37,41 @@ func (rec *statusRecorder) WriteHeader(code int) {
 func (h *Handler) endpointProxy(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	source := vars["source"]
-	h.targetsMutex.RLock()
-	defer h.targetsMutex.RUnlock()
 
-	u, ok := h.proxies[source]
-	if !ok {
-		http.Error(w, "missing source", http.StatusNotFound)
-		return
-	}
+	var rp *httputil.ReverseProxy
+	func() {
+		h.targetsMutex.RLock()
+		defer h.targetsMutex.RUnlock()
 
-	if h.reverseProxyMap == nil {
-		h.reverseProxyMap = make(map[url.URL]*httputil.ReverseProxy, 1)
-	}
-	rp, ok := h.reverseProxyMap[*u]
-	if !ok {
-		rp = createProxy(*u)
-		h.reverseProxyMap[*u] = rp
-	}
+		u, ok := h.proxies[source]
+		if !ok {
+			http.Error(w, "missing source", http.StatusNotFound)
+			return
+		}
 
-	rec := statusRecorder{w, 200}
-	rp.ServeHTTP(w, r)
+		// find reverse proxy handler
+		if h.reverseProxyMap == nil {
+			h.reverseProxyMap = make(map[url.URL]*httputil.ReverseProxy, 1)
+		}
+		rp, ok = h.reverseProxyMap[*u]
+		if !ok {
+			rp = createProxy(*u, h.proxyTimeout)
+			h.reverseProxyMap[*u] = rp
+		}
+	}()
+	statusCode := proxy(rp, w, r)
 
 	// record metrics
-	if rec.status == http.StatusOK {
+	if statusCode == http.StatusOK {
 		proxySuccessCountMetrics.Inc()
 	} else {
 		proxyFailureCountMetrics.Inc()
 	}
+}
+
+// proxy proxies request to reverse proxy and returns response status code.
+func proxy(rp *httputil.ReverseProxy, w http.ResponseWriter, r *http.Request) int {
+	rec := statusRecorder{w, 0}
+	rp.ServeHTTP(w, r)
+	return rec.status
 }
