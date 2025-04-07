@@ -52,12 +52,21 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 			for _, key := range filteredLabels {
 				delete(newLabels, model.LabelName(key))
 			}
+
+			// generate URL to scrape metrics
 			scheme := defaultScheme
 			if r.URL.Scheme != "" {
 				scheme = r.URL.Scheme
 			}
+
+			address := r.Host
+			if r.Headers.Get("X-Forwarded-Proto") != "" {
+				scheme = r.Headers.Get("X-Forwarded-Proto")
+				address = r.Headers.Get("X-Forwarded-For")
+			}
+
 			config := &staticConfig{
-				Targets: []string{r.Host},
+				Targets: []string{address},
 				Labels: model.LabelSet{
 					labelNameMetricsPathLabel: model.LabelValue("/proxy/" + hash),
 					labelNameSchemeLabel:      model.LabelValue(scheme),
