@@ -62,7 +62,6 @@ func (h *Handler) endpointServiceDiscovery(w http.ResponseWriter, r *http.Reques
 			address := r.Host
 			if r.Header.Get("X-Forwarded-Proto") != "" {
 				scheme = r.Header.Get("X-Forwarded-Proto")
-				address = r.Header.Get("X-Forwarded-For")
 			}
 
 			config := &staticConfig{
